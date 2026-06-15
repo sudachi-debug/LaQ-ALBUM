@@ -162,16 +162,6 @@
   .piece-stat-val{font-size:14px;font-weight:800;color:var(--text);}
   .piece-total{margin-top:10px;text-align:right;font-size:13px;font-weight:700;color:var(--primary);}
 
-  .ai-analysis{background:linear-gradient(135deg,#EEF2FF 0%,#FFF0F6 100%);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:12px;border:1.5px solid #E0E7FF;}
-  .ai-analysis-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-  .ai-badge{background:linear-gradient(135deg,var(--primary),var(--accent1));color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:50px;letter-spacing:0.5px;}
-  .ai-analysis-title{font-size:13px;font-weight:800;color:var(--text);}
-  .ai-analysis-body{font-size:13px;color:var(--text);line-height:1.7;}
-  .btn-ai{background:linear-gradient(135deg,var(--primary),var(--accent1));color:#fff;border:none;border-radius:50px;padding:8px 16px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:8px;display:flex;align-items:center;gap:6px;transition:opacity 0.15s;}
-  .btn-ai:hover{opacity:0.88;}
-  .btn-ai:disabled{opacity:0.5;cursor:not-allowed;}
-  .ai-loading{display:none;}
-  .ai-loading.show{display:inline-block;}
   .btn-delete{width:100%;background:#fff;border:2px solid #FFE0E0;color:var(--accent4);border-radius:50px;padding:11px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;transition:background 0.12s;}
   .btn-delete:hover{background:#FFF5F5;}
 
@@ -370,19 +360,6 @@
       <div class="detail-memo" id="d-memo"></div>
     </div>
 
-    <div class="ai-analysis" id="ai-section">
-      <div class="ai-analysis-header">
-        <span class="ai-badge">AI</span>
-        <span class="ai-analysis-title">AI 設計図解析</span>
-      </div>
-      <div class="ai-analysis-body" id="ai-body">写真からAIが作品の構造・特徴・再現ヒントを解析します。</div>
-      <button class="btn-ai" id="btn-ai-analyze">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.9 2.9l1.4 1.4M9.7 9.7l1.4 1.4M2.9 11.1l1.4-1.4M9.7 4.3l1.4-1.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span id="ai-btn-text">✨ AI で解析する</span>
-        <span class="ai-loading" id="ai-spinner">⏳</span>
-      </button>
-    </div>
-
     <button class="btn-delete" id="btn-delete-work">🗑 この作品を削除</button>
   </div>
 </div>
@@ -392,7 +369,7 @@
   <img id="lightbox-img" src="" alt="">
 </div>
 
-<footer>v 0.00.005</footer>
+<footer>v 0.00.007</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -871,14 +848,6 @@ async function openDetail(id){
   if(w.memo){ms.style.display='';document.getElementById('d-memo').textContent=w.memo;}
   else ms.style.display='none';
 
-  const ais=document.getElementById('ai-section');
-  if(photoUrls.length>0){
-    ais.style.display='';
-    if(w.aiAnalysis){document.getElementById('ai-body').innerHTML=w.aiAnalysis;document.getElementById('ai-btn-text').textContent='🔄 再解析する';}
-    else{document.getElementById('ai-body').textContent='写真からAIが作品の構造・特徴・再現ヒントを解析します。';document.getElementById('ai-btn-text').textContent='✨ AI で解析する';}
-    document.getElementById('btn-ai-analyze').disabled=false;
-  } else ais.style.display='none';
-
   document.getElementById('detail-modal').classList.remove('hidden');
 }
 
@@ -1071,48 +1040,6 @@ document.getElementById('viewer-wire').addEventListener('click',()=>{
 document.getElementById('viewer-auto').addEventListener('click',()=>{
   isAutoRotate=!isAutoRotate;
   document.getElementById('viewer-auto').textContent=isAutoRotate?'⏸ 停止':'▶ 自動回転';
-});
-
-// ═══════════════════════════════════════════════
-// AI 解析
-// ═══════════════════════════════════════════════
-document.getElementById('btn-ai-analyze').addEventListener('click',async()=>{
-  const w=works.find(x=>x.id===currentDetailId);
-  if(!w||!w.photoKeys||!w.photoKeys.length)return;
-  const btn=document.getElementById('btn-ai-analyze');
-  const spinner=document.getElementById('ai-spinner');
-  const btnText=document.getElementById('ai-btn-text');
-  const aiBody=document.getElementById('ai-body');
-  btn.disabled=true;spinner.classList.add('show');btnText.textContent='解析中…';aiBody.textContent='📸 写真を解析しています…';
-  try {
-    const photoCount=Math.min(w.photoKeys.length,2);
-    const imageContents=[];
-    for(let i=0;i<photoCount;i++){
-      const rec=await idbGet('photos',w.photoKeys[i]);
-      if(!rec)continue;
-      const buf=await rec.blob.arrayBuffer();
-      const bytes=new Uint8Array(buf);
-      let bin='';
-      const chunk=8192;
-      for(let j=0;j<bytes.length;j+=chunk) bin+=String.fromCharCode(...bytes.subarray(j,j+chunk));
-      const b64=btoa(bin);
-      imageContents.push({type:'image',source:{type:'base64',media_type:rec.blob.type||'image/jpeg',data:b64}});
-    }
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:1000,
-        messages:[{role:'user',content:[...imageContents,{type:'text',text:`これはLaQ（ラキュー）というおもちゃで作られた作品の写真です。作品名: ${w.name}、カテゴリ: ${w.type||'不明'}、難易度: ${w.level||'不明'}。\n\n以下の観点で日本語で設計図解析レポートを書いてください（絵文字を使って親しみやすく）：\n1. 🏗 構造の特徴\n2. 🎨 色の傾向\n3. 🔑 再現のポイント\n4. ✨ 見どころ\n各項目を1〜2文で簡潔に。`}]}]
-      })
-    });
-    const data=await resp.json();
-    const text=data.content?.filter(c=>c.type==='text').map(c=>c.text).join('')||'解析できませんでした。';
-    const html=text.replace(/\n/g,'<br>');
-    aiBody.innerHTML=html;btnText.textContent='🔄 再解析する';
-    const idx=works.findIndex(x=>x.id===currentDetailId);
-    if(idx>=0){works[idx].aiAnalysis=html;await idbPut('meta',works[idx]);}
-  } catch(err){aiBody.textContent=`解析に失敗しました: ${err.message}`;}
-  finally{btn.disabled=false;spinner.classList.remove('show');}
 });
 
 // ─── ライトボックス ───

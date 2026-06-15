@@ -403,7 +403,7 @@
   <img id="lightbox-img" src="" alt="">
 </div>
 
-<footer>v 0.00.003</footer>
+<footer>v 0.00.004</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -1153,7 +1153,11 @@ document.getElementById('btn-ai-analyze').addEventListener('click',async()=>{
       const rec=await idbGet('photos',w.photoKeys[i]);
       if(!rec)continue;
       const buf=await rec.blob.arrayBuffer();
-      const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const bytes=new Uint8Array(buf);
+      let bin='';
+      const chunk=8192;
+      for(let j=0;j<bytes.length;j+=chunk) bin+=String.fromCharCode(...bytes.subarray(j,j+chunk));
+      const b64=btoa(bin);
       imageContents.push({type:'image',source:{type:'base64',media_type:rec.blob.type||'image/jpeg',data:b64}});
     }
     const pieceInfo=Object.keys(w.pieces||{}).length>0?`ピース情報: ${PIECE_TYPES.filter(p=>w.pieces[p.key]).map(p=>`${p.label}${w.pieces[p.key]}個`).join('、')}`:'';

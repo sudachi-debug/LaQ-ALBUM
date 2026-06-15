@@ -227,7 +227,6 @@
     <option value="newest">新しい順</option>
     <option value="oldest">古い順</option>
     <option value="name">名前順</option>
-    <option value="pieces">ピース数順</option>
   </select>
 </div>
 
@@ -302,11 +301,6 @@
     </div>
 
     <div class="form-section">
-      <label class="form-label">🧩 ピース数（色別）</label>
-      <div class="piece-counts" id="piece-counts"></div>
-    </div>
-
-    <div class="form-section">
       <label class="form-label">📝 メモ・制作ポイント</label>
       <textarea class="form-textarea" id="f-memo" placeholder="難しかった箇所・工夫したこと・再現のコツなど"></textarea>
     </div>
@@ -371,11 +365,6 @@
       <button class="btn-edit-detail" id="btn-edit-detail">✏️ 編集</button>
     </div>
 
-    <div class="detail-section" id="d-piece-section">
-      <div class="detail-section-title">🧩 ピース構成</div>
-      <div class="piece-stat-grid" id="d-pieces"></div>
-      <div class="piece-total" id="d-piece-total"></div>
-    </div>
     <div class="detail-section" id="d-memo-section">
       <div class="detail-section-title">📝 メモ・設計ポイント</div>
       <div class="detail-memo" id="d-memo"></div>
@@ -403,7 +392,7 @@
   <img id="lightbox-img" src="" alt="">
 </div>
 
-<footer>v 0.00.004</footer>
+<footer>v 0.00.005</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -525,24 +514,6 @@ function loadScript(url){
   return loadedScripts[url];
 }
 
-const PIECE_TYPES=[
-  {key:'white', label:'白',   color:'#FFFFFF',border:'#ccc'},
-  {key:'yellow',label:'黄',   color:'#FFD166'},
-  {key:'orange',label:'橙',   color:'#F4845F'},
-  {key:'red',   label:'赤',   color:'#FF6B6B'},
-  {key:'pink',  label:'ピンク',color:'#FF7EB3'},
-  {key:'purple',label:'紫',   color:'#9B59B6'},
-  {key:'blue',  label:'青',   color:'#4A90D9'},
-  {key:'lblue', label:'水色', color:'#74C9E5'},
-  {key:'green', label:'緑',   color:'#06D6A0'},
-  {key:'lgreen',label:'黄緑', color:'#A8E63D'},
-  {key:'brown', label:'茶',   color:'#8B5E3C'},
-  {key:'black', label:'黒',   color:'#2D3142'},
-  {key:'clear', label:'透明', color:'#E8F4FD',border:'#74C9E5'},
-  {key:'other', label:'その他',color:'#E8EAF2',border:'#8B8FA8'},
-];
-
-function totalPieces(p){if(!p)return 0;return Object.values(p).reduce((s,v)=>s+v,0);}
 function formatDate(d){if(!d)return '';const dt=new Date(d);return `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日`;}
 function escHtml(s){if(!s)return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function uid(){return 'w'+Date.now()+'_'+Math.random().toString(36).slice(2,7);}
@@ -580,7 +551,6 @@ function renderAlbum() {
   if(sort==='newest') list=[...list].sort((a,b)=>b.createdAt-a.createdAt);
   else if(sort==='oldest') list=[...list].sort((a,b)=>a.createdAt-b.createdAt);
   else if(sort==='name') list=[...list].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-  else if(sort==='pieces') list=[...list].sort((a,b)=>totalPieces(b.pieces)-totalPieces(a.pieces));
 
   const grid=document.getElementById('album-grid');
   document.getElementById('count-badge').textContent=`${list.length} 作品`;
@@ -597,7 +567,6 @@ function renderAlbum() {
   grid.innerHTML=list.map((w,i)=>{
     const thumbKey=w.photoKeys&&w.photoKeys[0];
     const thumbUrl=thumbKey?getPhotoURL(thumbKey):null;
-    const total=totalPieces(w.pieces);
     return `
     <div class="work-card" style="animation-delay:${i*0.04}s" data-id="${w.id}">
       <div class="card-photos">
@@ -612,7 +581,6 @@ function renderAlbum() {
         <div class="card-tags">
           ${w.level?`<span class="tag tag-level">${escHtml(w.level)}</span>`:''}
           ${w.type?`<span class="tag tag-type">${escHtml(w.type)}</span>`:''}
-          ${total?`<span class="tag tag-piece">🧩 ${total}個</span>`:''}
           ${w.time?`<span class="tag tag-piece">⏱ ${escHtml(w.time)}</span>`:''}
         </div>
         ${w.memo?`<div class="card-memo">${escHtml(w.memo)}</div>`:''}
@@ -626,20 +594,6 @@ function renderAlbum() {
 // ═══════════════════════════════════════════════
 // 追加/編集フォーム
 // ═══════════════════════════════════════════════
-function renderPieceInputs(data={}){
-  document.getElementById('piece-counts').innerHTML=PIECE_TYPES.map(p=>`
-    <div class="piece-row">
-      <div class="piece-color-dot" style="background:${p.color};border-color:${p.border||'transparent'}"></div>
-      <label>${p.label}</label>
-      <input type="number" min="0" value="${data[p.key]||''}" placeholder="0" id="piece-${p.key}">
-    </div>`).join('');
-}
-function getPieceCounts(){
-  const r={};
-  PIECE_TYPES.forEach(p=>{const v=parseInt(document.getElementById(`piece-${p.key}`).value)||0;if(v>0)r[p.key]=v;});
-  return r;
-}
-
 function openAddModal(){
   editingId=null; pendingPhotos=[]; pendingModel=null; pendingModelDelete=false;
   document.getElementById('modal-form-title').textContent='✨ 新しい作品を登録';
@@ -648,7 +602,6 @@ function openAddModal(){
   document.getElementById('photo-previews').innerHTML='';
   document.getElementById('model-file-preview').innerHTML='';
   document.getElementById('save-progress').classList.remove('show');
-  renderPieceInputs();
   document.getElementById('btn-save-work').disabled=false;
   document.getElementById('add-modal').classList.remove('hidden');
 }
@@ -681,7 +634,6 @@ async function openEditModal(id){
   document.getElementById('f-type').value=w.type||'';
   document.getElementById('f-time').value=w.time||'';
   document.getElementById('f-memo').value=w.memo||'';
-  renderPieceInputs(w.pieces||{});
   renderPendingPreviews();
   renderModelFileInfo();
   document.getElementById('save-progress').classList.remove('show');
@@ -818,7 +770,6 @@ document.getElementById('btn-save-work').addEventListener('click', async ()=>{
       type:document.getElementById('f-type').value,
       time:document.getElementById('f-time').value.trim(),
       memo:document.getElementById('f-memo').value.trim(),
-      pieces:getPieceCounts(),
       photoKeys,
       hasModel, modelName, modelExt,
       createdAt:editingId?(existingMeta?.createdAt||Date.now()):Date.now(),
@@ -915,19 +866,6 @@ async function openDetail(id){
     w.level?`<span class="tag tag-level">${escHtml(w.level)}</span>`:'',
     w.type?`<span class="tag tag-type">${escHtml(w.type)}</span>`:'',
   ].join('');
-
-  const total=totalPieces(w.pieces);
-  const ps=document.getElementById('d-piece-section');
-  if(total>0){
-    ps.style.display='';
-    document.getElementById('d-pieces').innerHTML=PIECE_TYPES.filter(p=>w.pieces[p.key]).map(p=>`
-      <div class="piece-stat">
-        <div class="dot" style="background:${p.color};border-color:${p.border||'transparent'}"></div>
-        <span class="piece-stat-name">${p.label}</span>
-        <span class="piece-stat-val">${w.pieces[p.key]}</span>
-      </div>`).join('');
-    document.getElementById('d-piece-total').textContent=`合計 ${total} 個`;
-  } else ps.style.display='none';
 
   const ms=document.getElementById('d-memo-section');
   if(w.memo){ms.style.display='';document.getElementById('d-memo').textContent=w.memo;}
@@ -1160,12 +1098,11 @@ document.getElementById('btn-ai-analyze').addEventListener('click',async()=>{
       const b64=btoa(bin);
       imageContents.push({type:'image',source:{type:'base64',media_type:rec.blob.type||'image/jpeg',data:b64}});
     }
-    const pieceInfo=Object.keys(w.pieces||{}).length>0?`ピース情報: ${PIECE_TYPES.filter(p=>w.pieces[p.key]).map(p=>`${p.label}${w.pieces[p.key]}個`).join('、')}`:'';
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+      method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',max_tokens:1000,
-        messages:[{role:'user',content:[...imageContents,{type:'text',text:`これはLaQ（ラキュー）というおもちゃで作られた作品の写真です。作品名: ${w.name}、カテゴリ: ${w.type||'不明'}、難易度: ${w.level||'不明'}。${pieceInfo}\n\n以下の観点で日本語で設計図解析レポートを書いてください（絵文字を使って親しみやすく）：\n1. 🏗 構造の特徴\n2. 🎨 色の傾向\n3. 🔑 再現のポイント\n4. ✨ 見どころ\n各項目を1〜2文で簡潔に。`}]}]
+        messages:[{role:'user',content:[...imageContents,{type:'text',text:`これはLaQ（ラキュー）というおもちゃで作られた作品の写真です。作品名: ${w.name}、カテゴリ: ${w.type||'不明'}、難易度: ${w.level||'不明'}。\n\n以下の観点で日本語で設計図解析レポートを書いてください（絵文字を使って親しみやすく）：\n1. 🏗 構造の特徴\n2. 🎨 色の傾向\n3. 🔑 再現のポイント\n4. ✨ 見どころ\n各項目を1〜2文で簡潔に。`}]}]
       })
     });
     const data=await resp.json();
